@@ -15,7 +15,7 @@ os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Specify the default PDF file path here
-DEFAULT_PDF_PATH = "/data/CrashCourse_Info_Cohort4.pdf" 
+DEFAULT_PDF_PATH = "data/CrashCourse_Info_Cohort4.pdf" 
 
 def get_pdf_text(pdf_path):
     text = ""

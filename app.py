@@ -58,7 +58,7 @@ def user_input(user_question):
 
 def main():
     st.set_page_config("Chat PDF")
-    st.header("Chat with BuildFastWithAi💁")
+    st.header("Chat with BuildFastWithAi Course💁")
 
     user_question = st.text_input("Ask a Question from the PDF File")
     if st.button("Submit"):

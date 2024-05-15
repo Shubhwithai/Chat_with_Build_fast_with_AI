@@ -5,7 +5,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
@@ -18,7 +18,7 @@ os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # --- Constants ---
-DEFAULT_PDF_PATH = "CrashCourse_Info_Cohort4.pdf"  # Update with your PDF path
+DEFAULT_PDF_PATH = "\data\CrashCourse_Info_Cohort4.pdf"  # Update with your PDF path
 VECTOR_STORE_FILENAME = "faiss_index"
 
 # --- Initialize Vector Store ---
@@ -68,9 +68,8 @@ def get_conversational_chain():
     return chain
 
 # --- Streamlit UI ---
-st.set_page_config(page_title="PDF Chatbot", page_icon="📃💬")
-st.title("📃💬 PDF Chatbot")
-st.subheader("Ask questions about your PDF!")
+st.set_page_config(page_title="Course Chatbot", page_icon="📃💬")
+st.title("💬 Chat with Build Fast With AI ")
 
 # --- Session State Initialization ---
 if 'buffer_memory' not in st.session_state:
@@ -78,7 +77,7 @@ if 'buffer_memory' not in st.session_state:
 
 if "messages" not in st.session_state.keys():
     st.session_state.messages = [
-        {"role": "assistant", "content": "Ask me anything about the PDF! 😊"}
+        {"role": "assistant", "content": "Ask me anything about the Course! 😊"}
     ]
 
 # --- PDF Processing & Vector Store ---
@@ -92,7 +91,7 @@ if not os.path.exists(VECTOR_STORE_FILENAME):
 if os.path.exists(VECTOR_STORE_FILENAME) and vector_store is None:
     with st.spinner("Loading vector store..."):
         load_vector_store()
-        st.success("Vector store loaded!")
+        # st.success("Vector store loaded!")
 
 # --- Chat Interaction ---
 # Display previous messages
@@ -112,7 +111,6 @@ if prompt := st.chat_input("Ask your question..."):
     # Process user input
     if st.session_state.messages[-1]["role"] != "assistant":
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
                 docs = vector_store.similarity_search(prompt)
                 chain = get_conversational_chain()
                 response = chain({"input_documents": docs, "question": prompt}, return_only_outputs=True)

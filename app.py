@@ -1,22 +1,31 @@
 import streamlit as st
+from streamlit_chat import message
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
-from langchain_community.vectorstores import FAISS
+from langchain.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
+from langchain.chains import ConversationChain
+from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from dotenv import load_dotenv
 
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Specify the default PDF file path here
-DEFAULT_PDF_PATH = "data/CrashCourse_Info_Cohort4.pdf" 
+# --- Constants ---
+DEFAULT_PDF_PATH = "E:\Buildfastwith ai\chat with Specific pdf\CrashCourse_Info_Cohort4.pdf"  # Update with your PDF path
+VECTOR_STORE_FILENAME = "faiss_index"
 
+# --- Initialize Vector Store ---
+embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+vector_store = None
+
+# --- Functions ---
 def get_pdf_text(pdf_path):
     text = ""
     with open(pdf_path, 'rb') as pdf_file:
@@ -30,17 +39,27 @@ def get_text_chunks(text):
     chunks = text_splitter.split_text(text)
     return chunks
 
-def get_vector_store(text_chunks):
-    embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
+def create_and_save_vector_store(text_chunks):
+    global vector_store
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-    vector_store.save_local("faiss_index")
+    vector_store.save_local(VECTOR_STORE_FILENAME)
+
+def load_vector_store():
+    global vector_store
+    vector_store = FAISS.load_local(VECTOR_STORE_FILENAME, embeddings, allow_dangerous_deserialization=True)
 
 def get_conversational_chain():
-    prompt_template =  """
-    Answer the question as detailed as possible from the provided context, make sure to provide all the details, if the answer is not in
-    provided context just say, "answer is not available in the context", don't provide the wrong answer\n\n
-    Context:\n {context}?\n
-    Question: \n{question}\n
+    prompt_template = """
+    Answer the question as detailed as possible from the provided context. 
+    If the answer is not in the context, say "Answer is not available in the context". 
+    Do not provide incorrect answers.
+
+    Context:
+    {context}
+
+    Question:
+    {question}
+
     Answer:
     """
     model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
@@ -48,28 +67,56 @@ def get_conversational_chain():
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
     return chain
 
-def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
-    docs = new_db.similarity_search(user_question)
-    chain = get_conversational_chain()
-    response = chain({"input_documents": docs, "question": user_question}, return_only_outputs=True)
-    st.write("Reply:", response["output_text"])
+# --- Streamlit UI ---
+st.set_page_config(page_title="PDF Chatbot", page_icon="📃💬")
+st.title("📃💬 PDF Chatbot")
+st.subheader("Ask questions about your PDF!")
 
-def main():
-    st.set_page_config("Chat PDF")
-    st.header("Chat with BuildFastWithAi Course💁")
+# --- Session State Initialization ---
+if 'buffer_memory' not in st.session_state:
+    st.session_state.buffer_memory = ConversationBufferWindowMemory(k=3, return_messages=True)
 
-    user_question = st.text_input("Ask a Question from the PDF File")
-    if st.button("Submit"):
-        with st.spinner("Processing..."):
-            raw_text = get_pdf_text(DEFAULT_PDF_PATH)
-            text_chunks = get_text_chunks(raw_text)
-            get_vector_store(text_chunks)
-            st.success("PDF processed!")
+if "messages" not in st.session_state.keys():
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Ask me anything about the PDF! 😊"}
+    ]
 
-        if user_question:
-            user_input(user_question)
+# --- PDF Processing & Vector Store ---
+if not os.path.exists(VECTOR_STORE_FILENAME):
+    with st.spinner("Processing PDF..."):
+        raw_text = get_pdf_text(DEFAULT_PDF_PATH)
+        text_chunks = get_text_chunks(raw_text)
+        create_and_save_vector_store(text_chunks)
+        st.success("PDF processed and vector store created!")
 
-if __name__ == "__main__":
-    main()
+if os.path.exists(VECTOR_STORE_FILENAME) and vector_store is None:
+    with st.spinner("Loading vector store..."):
+        load_vector_store()
+        st.success("Vector store loaded!")
+
+# --- Chat Interaction ---
+# Display previous messages
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
+
+# User input area
+if prompt := st.chat_input("Ask your question..."):
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    # Display user message first
+    with st.chat_message("user"):
+        st.write(prompt)
+
+    # Process user input
+    if st.session_state.messages[-1]["role"] != "assistant":
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                docs = vector_store.similarity_search(prompt)
+                chain = get_conversational_chain()
+                response = chain({"input_documents": docs, "question": prompt}, return_only_outputs=True)
+                # Display assistant's response
+                st.write(response["output_text"])
+                # Add assistant's response to chat history
+                st.session_state.messages.append({"role": "assistant", "content": response["output_text"]})

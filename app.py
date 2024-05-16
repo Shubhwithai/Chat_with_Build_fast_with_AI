@@ -51,7 +51,7 @@ def load_vector_store():
 def get_conversational_chain():
     prompt_template = """
     Answer the question as detailed as possible from the provided context. 
-    If the answer is not in the context, say "I cant answer thais Question, happy to discuss with this Crash Course..". 
+    If the answer is not in the context, say "I can't answer this Question, happy to discuss with this Crash Course..". 
     Do not provide incorrect answers.
 
     Context:

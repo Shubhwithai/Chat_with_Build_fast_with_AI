@@ -18,7 +18,7 @@ os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # --- Constants ---
-DEFAULT_PDF_PATH = "\data\CrashCourse_Info_Cohort4.pdf"  # Update with your PDF path
+DEFAULT_PDF_PATH = "data\CrashCourse_Info_Cohort4.pdf"  # Update with your PDF path
 VECTOR_STORE_FILENAME = "faiss_index"
 
 # --- Initialize Vector Store ---

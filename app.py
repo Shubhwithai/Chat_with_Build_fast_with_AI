@@ -12,7 +12,6 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import ConversationChain
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from dotenv import load_dotenv
-from nemoguardrails import LLMRails, RailsConfig
 
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
@@ -49,76 +48,10 @@ def load_vector_store():
     global vector_store
     vector_store = FAISS.load_local(VECTOR_STORE_FILENAME, embeddings, allow_dangerous_deserialization=True)
 
-# Configuring the guardrails
-yaml_content = """
-rules:
-  - name: safe_interaction
-    description: |
-      Ensure that the assistant does not provide harmful or inappropriate responses.
-    triggers:
-      - input: "What do you think about the *?"
-    actions:
-      - respond: "I don't have personal opinions, but I'm here to help with your questions about the Build Fast With AI Course."
-
-  - name: context_awareness
-    description: |
-      Ensure the assistant provides answers based on the provided context.
-    triggers:
-      - input: "Tell me about *"
-    actions:
-      - context-aware-response
-
-  - name: clarify_missing_information
-    description: |
-      Ensure the assistant asks for clarification when the question is unclear or lacks information.
-    triggers:
-      - input: "Explain *"
-    actions:
-      - respond: "Could you please provide more details about what you want to know?"
-
-responses:
-  safe_interaction:
-    - "I don't have personal opinions, but I'm here to help with your questions about the Build Fast With AI Course."
-  context_awareness:
-    - "Based on the provided context, here is what I can tell you..."
-  clarify_missing_information:
-    - "Could you please provide more details about what you want to know?"
-
-settings:
-  max_tokens: 512
-  temperature: 0.3
-"""
-
-colang_content = """
-define context-aware-response:
-  If the input contains context-specific information:
-    Use the context to generate a detailed response.
-  Otherwise:
-    Ask the user for more context.
-
-on safe_interaction:
-  Trigger: If the input asks for personal opinions.
-  Action: Respond with a predefined message to avoid personal opinions.
-
-on context_awareness:
-  Trigger: If the input requests information about a specific topic.
-  Action: Use the provided context to generate a detailed response or ask for more context.
-
-on clarify_missing_information:
-  Trigger: If the input is vague or lacks details.
-  Action: Ask the user for more information to clarify their request.
-"""
-
-config = RailsConfig.from_content(
-    yaml_content=yaml_content,
-    colang_content=colang_content
-)
-rails = LLMRails(config)
-
 def get_conversational_chain():
     prompt_template = """
     Answer the question as detailed as possible from the provided context. 
-    If the answer is not in the context, say "I can't answer this question, happy to discuss with Build Fast With AI Course Chatbot". 
+    If the answer is not in the context, say "I cant answer this question, happy to discuss with Build Fast With AI Course Chatbot". 
     Do not provide incorrect answers.
 
     Context:
@@ -158,6 +91,7 @@ if not os.path.exists(VECTOR_STORE_FILENAME):
 if os.path.exists(VECTOR_STORE_FILENAME) and vector_store is None:
     with st.spinner("Loading vector store..."):
         load_vector_store()
+        # st.success("Vector store loaded!")
 
 # --- Chat Interaction ---
 # Display previous messages
@@ -177,12 +111,10 @@ if prompt := st.chat_input("Ask your question..."):
     # Process user input
     if st.session_state.messages[-1]["role"] != "assistant":
         with st.chat_message("assistant"):
-            docs = vector_store.similarity_search(prompt)
-            chain = get_conversational_chain()
-            response = chain({"input_documents": docs, "question": prompt}, return_only_outputs=True)
-            # Apply NeMo Guardrails
-            bot_message = rails.generate(messages=[{"role": "user", "content": prompt}, {"role": "assistant", "content": response["output_text"]}])
-            # Display assistant's response
-            st.write(bot_message['content'])
-            # Add assistant's response to chat history
-            st.session_state.messages.append({"role": "assistant", "content": bot_message['content']})
+                docs = vector_store.similarity_search(prompt)
+                chain = get_conversational_chain()
+                response = chain({"input_documents": docs, "question": prompt}, return_only_outputs=True)
+                # Display assistant's response
+                st.write(response["output_text"])
+                # Add assistant's response to chat history
+                st.session_state.messages.append({"role": "assistant", "content": response["output_text"]})

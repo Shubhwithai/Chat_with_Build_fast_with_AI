@@ -1,6 +1,7 @@
 import streamlit as st
 from streamlit_chat import message
 from PyPDF2 import PdfReader
+import asyncio
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -48,10 +49,10 @@ def load_vector_store():
     global vector_store
     vector_store = FAISS.load_local(VECTOR_STORE_FILENAME, embeddings, allow_dangerous_deserialization=True)
 
-def get_conversational_chain():
+async def get_conversational_chain():
     prompt_template = """
     Answer the question as detailed as possible from the provided context. 
-    If the answer is not in the context, say "I cant answer this question, happy to discuss with Build Fast With AI Course Chatbot". 
+    If the answer is not in the context, say "I Can't answer this question, Happy to Discuss with Build Fast With AI Course Chatbot". 
     Do not provide incorrect answers.
 
     Context:
@@ -62,7 +63,7 @@ def get_conversational_chain():
 
     Answer:
     """
-    model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
+    model = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0.3)
     prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
     return chain
@@ -112,7 +113,7 @@ if prompt := st.chat_input("Ask your question..."):
     if st.session_state.messages[-1]["role"] != "assistant":
         with st.chat_message("assistant"):
                 docs = vector_store.similarity_search(prompt)
-                chain = get_conversational_chain()
+                chain = asyncio.run(get_conversational_chain())
                 response = chain({"input_documents": docs, "question": prompt}, return_only_outputs=True)
                 # Display assistant's response
                 st.write(response["output_text"])
